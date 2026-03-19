@@ -35,7 +35,7 @@
 [data-theme="dark"] {
   --bg-primary: #0d0d0d;
   --bg-secondary: #1a1a1a;
-  --text-primary: var(--border-color);
+  --text-primary: #e0e0e0;
   --text-secondary: #a0a0a0;
   --border-color: #333333;
   --border-light: #2a2a2a;
