@@ -1,9 +1,11 @@
-<!DOCTYPE html><html lang="pt"> <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Ranking Imóveis Japão</title><link rel="stylesheet" href="/_astro/index.CXiOlZUA.css"></head> <body>  <script type="module" client:load>
+<!DOCTYPE html><html lang="pt"> <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Ranking Imóveis Japão</title><link rel="stylesheet" href="/_astro/index.DoFxDy6p.css"></head> <body>  <script type="module" client:load>
     // ===========================
     // Configuração
     // ===========================
     const BASE = "https://www.best-estate.jp/pt/property/";
     const STORAGE_KEY = 'imoveis_state_v2';
+    const THEME_KEY = 'japan_houses_theme_v1';
+    let isDark = false;
 
     // ===========================
     // Dados e Estado
@@ -24,6 +26,40 @@
     let totalMax = null;
     let depMax = null;
     let busca = '';
+
+    // ===========================
+    // Tema (Dark Mode)
+    // ===========================
+    function toggleTheme() {
+      isDark = !isDark;
+      document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+      localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+      updateThemeButton();
+    }
+
+    function loadTheme() {
+      const saved = localStorage.getItem(THEME_KEY);
+      if (saved === 'dark') {
+        isDark = true;
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        isDark = false;
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+      updateThemeButton();
+    }
+
+    function updateThemeButton() {
+      const btn = document.getElementById('theme-toggle');
+      if (btn) {
+        btn.textContent = isDark ? '☀️ Claro' : '🌙 Escuro';
+        btn.classList.toggle('active', isDark);
+      }
+    }
+
+    // Modal de observações
+    let obsModalId: string | null = null;
+    let obsModalValue = '';
 
     // ===========================
     // Enriquecimento de dados
@@ -86,6 +122,10 @@
     async function loadData() {
       try {
         const res = await fetch('/data/properties.json');
+        console.log('Fetch status:', res.status);
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
         RAW = await res.json();
         RAW = RAW.map(enrichProperty);
         console.log(`Carregados ${RAW.length} imóveis`);
@@ -187,6 +227,28 @@
       saveState();
     };
 
+    window.openObsModal = (id) => {
+      obsModalId = id;
+      obsModalValue = obs[id] || '';
+      renderObsModal();
+    };
+
+    window.closeObsModal = () => {
+      obsModalId = null;
+      renderObsModal();
+    };
+
+    window.saveObsModal = () => {
+      if (obsModalId) {
+        const trimmed = obsModalValue.trim();
+        if (trimmed) obs[obsModalId] = trimmed;
+        else delete obs[obsModalId];
+        saveState();
+        render(); // atualiza a tabela
+      }
+      window.closeObsModal();
+    };
+
     window.sortBy = (key) => {
       if (sortKey === key) sortDir *= -1;
       else { sortKey = key; sortDir = -1; }
@@ -254,6 +316,36 @@
       showToast('Imóvel restaurado ✓');
     };
 
+    window.shareProperty = async (id) => {
+      const url = `${BASE}${id}`;
+      const title = `Imóvel em Japão - ${id}`;
+      
+      // Tentar usar Web Share API (móvel)
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: title,
+            text: `Confira este imóvel no Japão: ${url}`,
+            url: url
+          });
+          showToast('Compartilhado! ✓');
+          return;
+        } catch (err) {
+          // Fallback para copiar
+          console.log('Web Share falhou, copiando...', err);
+        }
+      }
+
+      // Copiar para clipboard
+      try {
+        await navigator.clipboard.writeText(url);
+        showToast('Link copiado! ✓');
+      } catch (err) {
+        showToast('Erro ao compartilhar');
+        console.error(err);
+      }
+    };
+
     function showToast(msg) {
       const el = document.getElementById('toast');
       el.textContent = msg;
@@ -279,6 +371,40 @@
       }
     }
 
+    function renderObsModal() {
+      const container = document.getElementById('obs-modal-container');
+      if (!container) return;
+      
+      if (obsModalId && obsModalValue !== undefined) {
+        container.innerHTML = `
+          <div class="modal-bg open" onclick="window.closeObsModal()">
+            <div class="modal modal-obs" onclick="event.stopPropagation()">
+              <h3>📝 Editar Observações</h3>
+              <p style="font-size: 12px; color: #666; margin-bottom: 12px;">
+                Imóvel: <b>${obsModalId}</b>
+              </p>
+              <textarea
+                class="obs-textarea"
+                placeholder="Digite suas anotações aqui..."
+                rows="8"
+                oninput="window.updateObsModalValue(this.value)"
+              >${obsModalValue}</textarea>
+              <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
+                <button class="modal-cancel" onclick="window.closeObsModal()">Cancelar</button>
+                <button class="modal-save" onclick="window.saveObsModal()">Salvar</button>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        container.innerHTML = '';
+      }
+    }
+
+    window.updateObsModalValue = (value) => {
+      obsModalValue = value;
+    };
+
     // ===========================
     // Renderização principal
     // ===========================
@@ -299,6 +425,14 @@
         }
         return (av < bv ? -1 : av > bv ? 1 : 0) * sortDir;
       });
+
+      // Priorizar favoritos no topo (se houver)
+      if (favs.size > 0) {
+        const favsList = list.filter(p => favs.has(p.id));
+        const nonFavs = list.filter(p => !favs.has(p.id));
+        // Manter ordenação dentro de cada grupo
+        list.splice(0, list.length, ...favsList, ...nonFavs);
+      }
 
       const total = list.length;
       const totalPages = Math.max(1, Math.ceil(total / pgSize));
@@ -357,9 +491,16 @@
             <td><b>¥${totalMensal.toLocaleString()}</b></td>
             <td>${p.ano}</td>
             <td class="obs-cell">
-              <textarea class="obs-input" placeholder="Anotações..." oninput="window.saveObs('${p.id}', this.value)">${obs[p.id] || ''}</textarea>
+              <button class="obs-btn" onclick="window.openObsModal('${p.id}')">
+                ${obs[p.id] ? '📝' : '➕'}
+              </button>
             </td>
-            <td><a class="link-btn" href="${BASE}${p.id}" target="_blank" rel="noopener">Abrir</a></td>
+            <td style="text-align: center;">
+              <button class="share-btn" onclick="window.shareProperty('${p.id}')" title="Compartilhar">
+                📤
+              </button>
+              <a class="link-btn" href="${BASE}${p.id}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Abrir</a>
+            </td>
           </tr>
         `;
       }).join('');
@@ -377,13 +518,22 @@
       document.getElementById('btn-n').className = `toggle-btn ${mode === 'normal' ? 'active' : ''}`;
       document.getElementById('btn-s').className = `toggle-btn ${mode === 'student' ? 'active' : ''}`;
       document.getElementById('btn-favs-filter').className = `btn-favs ${onlyFavs ? 'active' : ''}`;
+
+      // Renderizar modal de observações se estiver aberto
+      if (obsModalId) {
+        renderObsModal();
+      }
     }
+
+    // Expor funções globalmente para onclickinline
+    window.toggleTheme = toggleTheme;
 
     // ===========================
     // Inicialização eventos
     // ===========================
     document.addEventListener('DOMContentLoaded', () => {
       loadData();
+      loadTheme();
 
       // Modal
       document.getElementById('modal-bg').addEventListener('click', window.closeModal);
@@ -396,24 +546,20 @@
       document.getElementById('f-search').addEventListener('input', (e) => { busca = e.target.value; pg = 1; render(); });
       document.getElementById('f-pgsz').addEventListener('change', (e) => { pgSize = parseInt(e.target.value); pg = 1; render(); });
     });
-  </script>  <header class="header"> <div class="header-top"> <div> <h1>🏠 Ranking de Imóveis — Japão</h1> <p>Destino: <b>Shinkawa, Chuo-ku, Tokyo</b> · <b id="total-shown">–</b> imóveis · Score 0–100</p> </div> <div class="header-actions"> <button class="btn-restore" onclick="window.openModal()">🗑 Excluídos (<span id="del-count">0</span>)</button> <button class="btn-import" onclick="window.importData()">⬆ Importar JSON</button> <button class="btn-export" onclick="window.exportData()">⬇ Exportar JSON</button> </div> </div> </header> <div class="main"> <!-- Pesos --> <div class="pesos"> <div class="peso-item">🏠 Aluguel+Cond <b>35%</b></div> <div class="peso-item">💴 Depósito <b>25%</b></div> <div class="peso-item">🚃 Trem <b>20%</b></div> <div class="peso-item">📐 ¥/m² <b>12%</b></div> <div class="peso-item">🏗 Ano <b>8%</b></div> </div> <!-- Controles --> <div class="controls-card"> <div class="controls-row"> <div style="display:flex; gap:6px; align-items:center;"> <span style="font-size:12px; color:#666;">Transporte:</span> <button class="toggle-btn active" id="btn-n" onclick="() => setMode(&#34;normal&#34;)">💳 Normal</button> <button class="toggle-btn" id="btn-s" onclick="() => setMode(&#34;student&#34;)">🎓 Estudante −40%</button> </div> <label>Itens/pág:</label> <select id="f-pgsz"> <option value="25">25</option> <option value="50" selected>50</option> <option value="100">100</option> <option value="200">200</option> </select> </div> <div class="controls-row"> <label>Tipo:</label> <select id="f-tipo"> <option value="">Todos</option> <option value="1K">1K</option><option value="1R">1R</option> <option value="1DK">1DK</option><option value="1LDK">1LDK</option> <option value="2K">2K</option><option value="2DK">2DK</option> <option value="2LDK">2LDK</option><option value="3K">3K</option> <option value="3DK">3DK</option><option value="3LDK">3LDK</option> </select> <label>Trem até (min):</label> <input type="number" id="f-trem" placeholder="ex: 40"> <label>Total/mês até ¥:</label> <input type="number" id="f-total" placeholder="ex: 90000"> <label>Dep. até ¥:</label> <input type="number" id="f-dep" placeholder="ex: 50000"> <label>Busca:</label> <input type="text" id="f-search" placeholder="nome ou ID..." style="width:150px;"> <button class="toggle-btn" onclick="() => {
-    document.getElementById(&#34;f-tipo&#34;).value = &#34;&#34;;
-    document.getElementById(&#34;f-trem&#34;).value = &#34;&#34;;
-    document.getElementById(&#34;f-total&#34;).value = &#34;&#34;;
-    document.getElementById(&#34;f-dep&#34;).value = &#34;&#34;;
-    document.getElementById(&#34;f-search&#34;).value = &#34;&#34;;
-    tipoFilter = &#34;&#34;;
-    tremMax = null;
-    totalMax = null;
-    depMax = null;
-    busca = &#34;&#34;;
-    pg = 1;
-    render();
-  }">✕ Limpar</button> <button class="btn-favs" id="btn-favs-filter" onclick="() => {
-    onlyFavs = !onlyFavs;
-    pg = 1;
-    render();
-  }">⭐ Só favoritos</button> </div> </div> <!-- Stats --> <div class="stats-row" id="stats-row"> <!-- preenchido via JS --> </div> <!-- Tabela --> <div class="table-wrap"> <div style="overflow-x:auto;"> <table> <thead> <tr> <th onclick="window.sortBy('rank')">#</th> <th class="no-sort" title="Favoritar">⭐</th> <th class="del-th no-sort" title="Excluir imóvel"> <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:13px;height:13px;display:inline-block;vertical-align:middle;"> <path d="M6 2h4a1 1 0 0 1 1 1H5a1 1 0 0 1 1-1Z" fill="#c0392b"></path> <rect x="2.5" y="4" width="11" height="1.2" rx=".6" fill="#c0392b"></rect> <path d="M4 6l.8 8h6.4L12 6H4Zm2.5 1.5h1v5h-1v-5Zm3 0h1v5h-1v-5Z" fill="#c0392b"></path> </svg> </th> <th onclick="window.sortBy('nome')">Nome</th> <th onclick="window.sortBy('tipo')">Tipo</th> <th onclick="window.sortBy('score')">Score</th> <th onclick="window.sortBy('total_moradia')">Alug+Cond</th> <th onclick="window.sortBy('dep')">Depósito</th> <th onclick="window.sortBy('area')">Área</th> <th onclick="window.sortBy('trem')">🚃 Trem</th> <th>Passagem</th> <th>Transp/mês</th> <th onclick="window.sortBy('grand_total')">💰 Total/mês</th> <th onclick="window.sortBy('ano')">Ano</th> <th class="no-sort">📝 Observações</th> <th class="no-sort">Link</th> </tr> </thead> <tbody id="tbody"></tbody> </table> </div> <div class="pagination" id="pagination"></div> </div> <!-- Nota --> <div class="note">
+  </script>  <header class="header"> <div class="header-top"> <div> <h1>🏠 Ranking de Imóveis — Japão</h1> <p>Destino: <b>Shinkawa, Chuo-ku, Tokyo</b> · <b id="total-shown">–</b> imóveis · Score 0–100</p> </div> <div class="header-actions"> <button class="btn-restore" onclick="window.openModal()">🗑 Excluídos (<span id="del-count">0</span>)</button> <button class="btn-import" onclick="window.importData()">⬆ Importar JSON</button> <button class="toggle-btn" id="theme-toggle" onclick="window.toggleTheme()">🌙 Escuro</button> <button class="btn-export" onclick="window.exportData()">⬇ Exportar JSON</button> </div> </div> </header> <div class="main"> <!-- Pesos --> <div class="pesos"> <div class="peso-item">🏠 Aluguel+Cond <b>35%</b></div> <div class="peso-item">💴 Depósito <b>25%</b></div> <div class="peso-item">🚃 Trem <b>20%</b></div> <div class="peso-item">📐 ¥/m² <b>12%</b></div> <div class="peso-item">🏗 Ano <b>8%</b></div> </div> <!-- Controles --> <div class="controls-card"> <!-- Linha 1: Modo transporte e Itens/página --> <div class="controls-row controls-row-main"> <div style="display:flex; gap:6px; align-items:center;"> <span style="font-size:12px; color:var(--text-secondary);">Transporte:</span> <button class="toggle-btn active" id="btn-n" onclick="setMode('normal')">💳 Normal</button> <button class="toggle-btn" id="btn-s" onclick="setMode('student')">🎓 Estudante −40%</button> </div> <div style="display:flex; align-items:center; gap:6px;"> <label style="margin:0;">Itens/pág:</label> <select id="f-pgsz"> <option value="25">25</option> <option value="50" selected>50</option> <option value="100">100</option> <option value="200">200</option> </select> </div> </div> <!-- Linha 2: Filtros principais --> <div class="controls-row controls-row-filters"> <label>Tipo:</label> <select id="f-tipo"> <option value="">Todos</option> <option value="1K">1K</option><option value="1R">1R</option> <option value="1DK">1DK</option><option value="1LDK">1LDK</option> <option value="2K">2K</option><option value="2DK">2DK</option> <option value="2LDK">2LDK</option><option value="3K">3K</option> <option value="3DK">3DK</option><option value="3LDK">3LDK</option> </select> <label>Trem até (min):</label> <input type="number" id="f-trem" placeholder="ex: 40"> <label>Total/mês até ¥:</label> <input type="number" id="f-total" placeholder="ex: 90000"> <label>Dep. até ¥:</label> <input type="number" id="f-dep" placeholder="ex: 50000"> </div> <!-- Linha 3: Busca e ações --> <div class="controls-row controls-row-actions"> <label>Busca:</label> <input type="text" id="f-search" placeholder="nome ou ID..."> <button class="toggle-btn" onclick="
+          document.getElementById('f-tipo').value = '';
+          document.getElementById('f-trem').value = '';
+          document.getElementById('f-total').value = '';
+          document.getElementById('f-dep').value = '';
+          document.getElementById('f-search').value = '';
+          tipoFilter = ''; tremMax = null; totalMax = null; depMax = null; busca = ''; pg = 1; render();
+        }}>✕ Limpar</button>
+        <button class=" btn-favs" id="btn-favs-filter" onclick=" onlyFavs = !onlyFavs; pg = 1; render(); }}>⭐ Só favoritos</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class=" stats-row" id="stats-row"> <!-- preenchido via JS --> </button></div> <!-- Tabela --> <div class="table-wrap"> <div style="overflow-x:auto;"> <table> <thead> <tr> <th onclick="window.sortBy('rank')">#</th> <th class="no-sort" title="Favoritar">⭐</th> <th class="del-th no-sort" title="Excluir imóvel"> <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:13px;height:13px;display:inline-block;vertical-align:middle;"> <path d="M6 2h4a1 1 0 0 1 1 1H5a1 1 0 0 1 1-1Z" fill="#c0392b"></path> <rect x="2.5" y="4" width="11" height="1.2" rx=".6" fill="#c0392b"></rect> <path d="M4 6l.8 8h6.4L12 6H4Zm2.5 1.5h1v5h-1v-5Zm3 0h1v5h-1v-5Z" fill="#c0392b"></path> </svg> </th> <th onclick="window.sortBy('nome')">Nome</th> <th onclick="window.sortBy('tipo')">Tipo</th> <th onclick="window.sortBy('score')">Score</th> <th onclick="window.sortBy('total_moradia')">Alug+Cond</th> <th onclick="window.sortBy('dep')">Depósito</th> <th onclick="window.sortBy('area')">Área</th> <th onclick="window.sortBy('trem')">🚃 Trem</th> <th>Passagem</th> <th>Transp/mês</th> <th onclick="window.sortBy('grand_total')">💰 Total/mês</th> <th onclick="window.sortBy('ano')">Ano</th> <th class="no-sort">📝 Observações</th> <th class="no-sort">Link</th> </tr> </thead> <tbody id="tbody"></tbody> </table> </div> <div class="pagination" id="pagination"></div> </div> <!-- Nota --> <div class="note">
 ⚠️ Tempos de trem estimados (±10min). Passagem = IC card one-way × 40 viagens/mês. Estudante = −40%.<br>
 ⭐ Favoritos e observações são salvos automaticamente. Use <b>⬇ Exportar JSON</b> para backup portátil.
-</div> </div>  <div class="toast" id="toast"></div>  <div class="modal-bg" id="modal-bg" onclick="window.closeModal()"> <div class="modal" onclick="event.stopPropagation()"> <h3>🗑 Imóveis excluídos</h3> <div class="modal-list" id="modal-list"></div> <button class="modal-close" onclick="window.closeModal()">Fechar</button> </div> </div>    <!-- Conteúdo da página vai aqui --> </body></html>
+</div> </div> <!-- Toast --> <div class="toast" id="toast"></div> <!-- Modal Deletados --> <div class="modal-bg" id="modal-bg" onclick="window.closeModal()"> <div class="modal" onclick="event.stopPropagation()"> <h3>🗑 Imóveis excluídos</h3> <div class="modal-list" id="modal-list"></div> <button class="modal-close" onclick="window.closeModal()">Fechar</button> </div> </div> <!-- Container do Modal de Observações (renderizado via JS) --> <div id="obs-modal-container"></div> <!-- Função setMode necessária para os botões inline -->  </div> <!-- Conteúdo da página vai aqui --> </body></html>

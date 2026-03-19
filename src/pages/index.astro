@@ -128,6 +128,10 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     async function loadData() {
       try {
         const res = await fetch('/data/properties.json');
+        console.log('Fetch status:', res.status);
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
         RAW = await res.json();
         RAW = RAW.map(enrichProperty);
         console.log(`Carregados ${RAW.length} imóveis`);
@@ -582,8 +586,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <div class="controls-row controls-row-main">
         <div style="display:flex; gap:6px; align-items:center;">
           <span style="font-size:12px; color:var(--text-secondary);">Transporte:</span>
-          <button class="toggle-btn active" id="btn-n" onclick={() => setMode('normal')}>💳 Normal</button>
-          <button class="toggle-btn" id="btn-s" onclick={() => setMode('student')}>🎓 Estudante −40%</button>
+          <button class="toggle-btn active" id="btn-n" onclick="setMode('normal')">💳 Normal</button>
+          <button class="toggle-btn" id="btn-s" onclick="setMode('student')">🎓 Estudante −40%</button>
         </div>
         <div style="display:flex; align-items:center; gap:6px;">
           <label style="margin:0;">Itens/pág:</label>
@@ -619,7 +623,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <div class="controls-row controls-row-actions">
         <label>Busca:</label>
         <input type="text" id="f-search" placeholder="nome ou ID..." />
-        <button class="toggle-btn" onclick={() => {
+        <button class="toggle-btn" onclick="
           document.getElementById('f-tipo').value = '';
           document.getElementById('f-trem').value = '';
           document.getElementById('f-total').value = '';
@@ -627,7 +631,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           document.getElementById('f-search').value = '';
           tipoFilter = ''; tremMax = null; totalMax = null; depMax = null; busca = ''; pg = 1; render();
         }}>✕ Limpar</button>
-        <button class="btn-favs" id="btn-favs-filter" onclick={() => { onlyFavs = !onlyFavs; pg = 1; render(); }}>⭐ Só favoritos</button>
+        <button class="btn-favs" id="btn-favs-filter" onclick=" onlyFavs = !onlyFavs; pg = 1; render(); }}>⭐ Só favoritos</button>
       </div>
     </div>
 
