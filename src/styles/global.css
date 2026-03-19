@@ -130,20 +130,21 @@ body {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 11.5px;
-  table-layout: fixed;
+  font-size: 12px;
+  table-layout: auto; /* permite que colunas se ajustem ao conteúdo */
 }
 thead th {
   background: #f5f5f7;
   font-weight: 500;
   font-size: 11px;
   color: #555;
-  padding: 8px 6px;
+  padding: 10px 8px;
   text-align: left;
   border-bottom: 1px solid #e0e0e0;
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
+  min-width: 60px; /* garante largura mínima */
 }
 thead th:hover { color: #1d1d1f; background: #ebebed; }
 thead th.no-sort { cursor: default; }
@@ -156,14 +157,14 @@ tbody tr:hover { background: #f9f9fb; }
 tbody tr.fav-row { background: #fffde7; }
 tbody tr.fav-row:hover { background: #fff9c4; }
 td {
-  padding: 6px 6px;
+  padding: 8px 10px;
   vertical-align: middle;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 td.nome-cell { white-space: normal; line-height: 1.4; font-size: 11px; }
-td.obs-cell { white-space: normal; font-size: 10.5px; }
+td.obs-cell { white-space: normal; font-size: 11px; }
 td.del-cell, td.fav-cell { text-align: center; padding: 4px 2px; }
 thead th.del-th {
   text-align: center;
@@ -386,28 +387,46 @@ thead th.del-th:hover { background: #fff0f0; color: #c0392b !important; }
 .modal-close:hover { background: #e8e8e8; }
 .empty-modal { font-size: 12px; color: #aaa; text-align: center; padding: 16px 0; }
 
-/* Larguras das colunas da tabela (table-layout: fixed) */
-thead th:nth-child(1) { width: 3%; }   /* # */
-thead th:nth-child(2) { width: 3%; }   /* ⭐ */
-thead th:nth-child(3) { width: 3%; }   /* 🗑 */
-thead th:nth-child(4) { width: 20%; }  /* Nome */
-thead th:nth-child(5) { width: 5%; }   /* Tipo */
-thead th:nth-child(6) { width: 10%; }  /* Score */
-thead th:nth-child(7) { width: 9%; }   /* Alug+Cond */
-thead th:nth-child(8) { width: 8%; }   /* Depósito */
-thead th:nth-child(9) { width: 7%; }   /* Área */
-thead th:nth-child(10) { width: 7%; }  /* 🚃 Trem */
-thead th:nth-child(11) { width: 6%; }  /* Passagem */
-thead th:nth-child(12) { width: 7%; }  /* Transp/mês */
-thead th:nth-child(13) { width: 9%; }  /* Total/mês */
-thead th:nth-child(14) { width: 5%; }  /* Ano */
-thead th:nth-child(15) { width: 15%; } /* 📝 Observações */
-thead th:nth-child(16) { width: 6%; }  /* Link */
+/* Larguras mínimas das colunas (mobile-first) */
+/* Colunas prioritárias: Nome e Observações */
 
-/* Ajuste para células de observação permitir多个linhas */
+/* Coluna Nome - deve ser a mais larga */
+col:nth-child(4) { min-width: 180px; }
+
+/* Coluna Observações - também ampla para o textarea */
+col:nth-child(15) { min-width: 150px; }
+
+/* Colunas numéricas - largura média */
+col:nth-child(7),  /* Alug+Cond */
+col:nth-child(8),  /* Depósito */
+col:nth-child(13), /* Total/mês */
+col:nth-child(11), /* Transp/mês */
+col:nth-child(12)  /* Passagem */ {
+  min-width: 80px;
+}
+
+/* Colunas pequenas mas importantes */
+col:nth-child(6),  /* Score */
+col:nth-child(9),  /* Área */
+col:nth-child(10), /* Trem */
+col:nth-child(14)  /* Ano */ {
+  min-width: 60px;
+}
+
+/* Colunas de ação - mínimas */
+col:nth-child(1),  /* # */
+col:nth-child(2),  /* ⭐ */
+col:nth-child(3),  /* 🗑 */
+col:nth-child(5),  /* Tipo */
+col:nth-child(16)  /* Link */ {
+  min-width: 45px;
+}
+
+/* Ajuste para células de observação permitir múltiplas linhas */
 td.obs-cell textarea {
-  min-height: 40px;
-  max-height: 80px;
+  min-height: 50px;
+  max-height: 100px;
+  line-height: 1.3;
 }
 
 /* Utilitários */
@@ -444,8 +463,8 @@ td.obs-cell textarea {
     min-width: 80px;
     flex: 1 1 80px;
   }
-  table { font-size: 10.5px; }
-  td, th { padding: 4px; }
+  table { font-size: 11px; }
+  td, th { padding: 6px 8px; }
   .pagination {
     gap: 6px;
     padding: 10px;
