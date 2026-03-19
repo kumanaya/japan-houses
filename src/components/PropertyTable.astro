@@ -1,0 +1,138 @@
+---
+// PropertyTable.astro - Tabela renderizada com funções globais (window.*)
+interface Props {
+  properties: any[];
+  deleted: Set<string>;
+  favs: Set<string>;
+  obs: Record<string, string>;
+  page: number;
+  pageSize: number;
+  total: number;
+  sortKey: string;
+  sortDir: number;
+  isStudent: boolean;
+}
+
+const {
+  properties,
+  deleted,
+  favs,
+  obs,
+  page,
+  pageSize,
+  total,
+  sortKey,
+  sortDir,
+  isStudent
+} = Astro.props;
+
+const start = (page - 1) * pageSize + 1;
+
+const formatCurrency = (n: number) => '¥' + n.toLocaleString('ja-JP');
+const formatObs = (id: string) => obs[id] || '';
+const isFav = (id: string) => favs.has(id);
+const getScoreColor = (score: number) => score >= 70 ? '#27ae60' : score >= 50 ? '#e67e22' : '#c0392b';
+const getTransportTime = (t: number) => t <= 20 ? 'fast' : t <= 50 ? 'mid' : 'slow';
+const getDepositClass = (dep: number) => dep === 0 ? 'dep-zero' : '';
+const badgeClass = (tipo: string) => {
+  const map: Record<string, string> = {
+    '1K': 'b-1K', '1R': 'b-1R', '1DK': 'b-1DK', '1LDK': 'b-1LDK',
+    '2K': 'b-2K', '2DK': 'b-2DK', '2LDK': 'b-2LDK',
+    '3K': 'b-3K', '3DK': 'b-3DK', '3LDK': 'b-3LDK', '1O': 'b-1O'
+  };
+  return map[tipo] || 'b-1K';
+};
+
+const grandTotal = (p: any) => {
+  const transport = isStudent ? p.transp_stud : p.transp_normal;
+  return p.total_moradia + transport;
+};
+---
+
+<div class="table-wrap">
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th onclick="window.sortBy('rank')">#</th>
+          <th class="no-sort" title="Favoritar">⭐</th>
+          <th class="del-th no-sort" title="Excluir imóvel">
+            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:13px;height:13px;display:inline-block;vertical-align:middle;">
+              <path d="M6 2h4a1 1 0 0 1 1 1H5a1 1 0 0 1 1-1Z" fill="#c0392b"/>
+              <rect x="2.5" y="4" width="11" height="1.2" rx=".6" fill="#c0392b"/>
+              <path d="M4 6l.8 8h6.4L12 6H4Zm2.5 1.5h1v5h-1v-5Zm3 0h1v5h-1v-5Z" fill="#c0392b"/>
+            </svg>
+          </th>
+          <th onclick="window.sortBy('nome')">Nome</th>
+          <th onclick="window.sortBy('tipo')">Tipo</th>
+          <th onclick="window.sortBy('score')">Score {sortKey === 'score' ? (sortDir === 1 ? '▲' : '▼') : ''}</th>
+          <th onclick="window.sortBy('total_moradia')">Alug+Cond</th>
+          <th onclick="window.sortBy('dep')">Depósito</th>
+          <th onclick="window.sortBy('area')">Área</th>
+          <th onclick="window.sortBy('trem')">🚃 Trem</th>
+          <th>Passagem</th>
+          <th>Transp/mês</th>
+          <th onclick="window.sortBy('grand_total')">💰 Total/mês</th>
+          <th onclick="window.sortBy('ano')">Ano</th>
+          <th class="no-sort">📝 Observações</th>
+          <th class="no-sort">Link</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        {properties.map(p => {
+          const totalMensal = grandTotal(p);
+          const transportDisplay = isStudent ? p.transp_stud : p.transp_normal;
+          return (
+            <tr class={isFav(p.id) ? 'fav-row' : ''} data-id={p.id}>
+              <td class="rank">{start + properties.indexOf(p)}</td>
+              <td class="fav-cell">
+                <button class="fav-btn {isFav(p.id) ? 'active' : ''}" onclick="window.toggleFav('{p.id}')">
+                  {isFav(p.id) ? '⭐' : '☆'}
+                </button>
+              </td>
+              <td class="del-cell">
+                <button class="del-btn" onclick="window.deleteItem('{p.id}')" title="Excluir">
+                  <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6 2h4a1 1 0 0 1 1 1H5a1 1 0 0 1 1-1Z" fill="currentColor"/>
+                    <rect x="2.5" y="4" width="11" height="1.2" rx=".6" fill="currentColor"/>
+                    <path d="M4 6l.8 8h6.4L12 6H4Zm2.5 1.5h1v5h-1v-5Zm3 0h1v5h-1v-5Z" fill="currentColor"/>
+                  </svg>
+                </button>
+              </td>
+              <td class="nome-cell" title={p.nome}>{p.nome}</td>
+              <td><span class="badge {badgeClass(p.tipo)}">{p.tipo}</span></td>
+              <td>
+                <div class="score-wrap">
+                  <div class="score-bar-bg">
+                    <div class="score-bar-fill" style="width: {p.score}%; background: {getScoreColor(p.score)}"></div>
+                  </div>
+                  <span class="score-val" style="color: {getScoreColor(p.score)}">{p.score}</span>
+                </div>
+              </td>
+              <td>¥{p.total_moradia.toLocaleString()}</td>
+              <td class={getDepositClass(p.dep)}>{p.dep === 0 ? 'Isento' : '¥' + p.dep.toLocaleString()}</td>
+              <td>{p.area.toFixed(2)} m²</td>
+              <td class={getTransportTime(p.trem)}>{p.trem}'</td>
+              <td>¥{p.passagem.toLocaleString()}</td>
+              <td>¥{transportDisplay.toLocaleString()}</td>
+              <td><b>¥{totalMensal.toLocaleString()}</b></td>
+              <td>{p.ano}</td>
+              <td class="obs-cell">
+                <textarea
+                  class="obs-input"
+                  placeholder="Anotações..."
+                  oninput="window.saveObs('{p.id}', this.value)"
+                >{formatObs(p.id)}</textarea>
+              </td>
+              <td>
+                <a class="link-btn" href={BASE + p.id} target="_blank" rel="noopener">Abrir</a>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination" id="pagination"></div>
+</div>

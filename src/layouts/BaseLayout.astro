@@ -1,0 +1,20 @@
+---
+// BaseLayout.astro - Layout principal
+import '../styles/global.css';
+---
+
+<!DOCTYPE html>
+<html lang="pt">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ranking Imóveis Japão</title>
+    <script>
+      // Diretiva para evitar que scripts externos quebrem o CSP
+      // (nenhum por enquanto)
+    </script>
+  </head>
+  <body>
+    <slot /> <!-- Conteúdo da página vai aqui -->
+  </body>
+</html>

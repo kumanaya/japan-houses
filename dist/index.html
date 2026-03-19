@@ -1,0 +1,329 @@
+<!DOCTYPE html><html lang="pt"> <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Ranking Imóveis Japão</title><link rel="stylesheet" href="/_astro/index.DuRmdnzt.css"></head> <body>  <script type="module" client:load>
+    // ===========================
+    // Configuração
+    // ===========================
+    const BASE = "https://www.best-estate.jp/pt/property/";
+    const STORAGE_KEY = 'imoveis_state_v2';
+
+    // ===========================
+    // Dados e Estado
+    // ===========================
+    let RAW = [];
+    let deleted = new Set();
+    let favs = new Set();
+    let obs = {};
+
+    let mode = 'normal';
+    let pg = 1;
+    let pgSize = 50;
+    let sortKey = 'score';
+    let sortDir = -1;
+    let onlyFavs = false;
+    let tipoFilter = '';
+    let tremMax = null;
+    let totalMax = null;
+    let depMax = null;
+    let busca = '';
+
+    async function loadData() {
+      try {
+        const res = await fetch('/data/properties.json');
+        RAW = await res.json();
+        RAW = RAW.map(p => ({
+          ...p,
+          transp_normal: p.transp_normal ?? Math.floor(p.total_moradia * 0.28),
+          transp_stud: p.transp_stud ?? Math.floor(p.total_moradia * 0.28 * 0.6),
+          passagem: p.passagem ?? 0,
+          score: p.score ?? 0
+        }));
+      } catch (e) {
+        console.error('Erro ao carregar dados', e);
+        RAW = [];
+      }
+      loadState();
+      render();
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const state = JSON.parse(raw);
+          deleted = new Set(state.deleted || []);
+          favs = new Set(state.favs || []);
+          obs = state.obs || {};
+        }
+      } catch (e) { console.error('Erro ao carregar estado', e); }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        deleted: [...deleted],
+        favs: [...favs],
+        obs
+      }));
+    }
+
+    // ===========================
+    // Computed
+    // ===========================
+    function getFiltered() {
+      const isStud = mode === 'student';
+      return RAW.filter(d => {
+        if (deleted.has(d.id)) return false;
+        if (onlyFavs && !favs.has(d.id)) return false;
+        const gt = d.total_moradia + (isStud ? d.transp_stud : d.transp_normal);
+        if (tipoFilter && d.tipo !== tipoFilter) return false;
+        if (tremMax && d.trem > tremMax) return false;
+        if (totalMax && gt > totalMax) return false;
+        if (depMax && d.dep > depMax) return false;
+        if (busca && !d.nome.toLowerCase().includes(busca.toLowerCase()) && !d.id.includes(busca)) return false;
+        return true;
+      });
+    }
+
+    function computeStats(list) {
+      const isStud = mode === 'student';
+      const totals = list.map(d => d.total_moradia + (isStud ? d.transp_stud : d.transp_normal));
+      const avg = Math.round(totals.reduce((a, b) => a + b, 0) / list.length) || 0;
+      const min = Math.min(...totals) || 0;
+      return { avgTotal: avg, minTotal: min, favCount: list.filter(d => favs.has(d.id)).length };
+    }
+
+    // ===========================
+    // Helpers
+    // ===========================
+    const fmt = (n) => '¥' + n.toLocaleString('ja-JP');
+    const badgeClass = (tipo) => {
+      const map = { '1K':'b-1K','1R':'b-1R','1DK':'b-1DK','1LDK':'b-1LDK','2K':'b-2K','2DK':'b-2DK','2LDK':'b-2LDK','3K':'b-3K','3DK':'b-3DK','3LDK':'b-3LDK','1O':'b-1O' };
+      return map[tipo] || 'b-1K';
+    };
+    const scoreColor = (s) => s >= 70 ? '#27ae60' : s >= 50 ? '#e67e22' : '#c0392b';
+    const transportClass = (t) => t <= 20 ? 'fast' : t <= 50 ? 'mid' : 'slow';
+
+    // ===========================
+    // Funções Globais (window.*)
+    // ===========================
+    window.toggleFav = (id) => {
+      favs.has(id) ? favs.delete(id) : favs.add(id);
+      saveState(); render();
+    };
+
+    window.deleteItem = (id) => {
+      deleted.add(id);
+      saveState();
+      document.getElementById('del-count').textContent = deleted.size;
+      render();
+      showToast('Imóvel removido');
+    };
+
+    window.saveObs = (id, value) => {
+      const v = value.trim();
+      v ? obs[id] = v : delete obs[id];
+      saveState();
+    };
+
+    window.sortBy = (key) => {
+      if (sortKey === key) sortDir *= -1;
+      else { sortKey = key; sortDir = -1; }
+      pg = 1; render();
+    };
+
+    window.changePage = (p) => {
+      const totalPages = Math.ceil(getFiltered().length / pgSize);
+      pg = Math.max(1, Math.min(p, totalPages));
+      render();
+    };
+
+    window.exportData = () => {
+      const data = JSON.stringify({ deleted: [...deleted], favs: [...favs], obs }, null, 2);
+      const blob = new Blob([data], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'meus_dados_imoveis.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast('JSON exportado ✓');
+    };
+
+    window.openModal = () => {
+      document.getElementById('modal-bg').style.display = 'flex';
+      renderModal();
+    };
+
+    window.closeModal = () => {
+      document.getElementById('modal-bg').style.display = 'none';
+    };
+
+    window.restoreItem = (id) => {
+      deleted.delete(id);
+      saveState();
+      document.getElementById('del-count').textContent = deleted.size;
+      renderModal();
+      render();
+      showToast('Imóvel restaurado ✓');
+    };
+
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 2500);
+    }
+
+    function renderModal() {
+      const items = RAW.filter(p => deleted.has(p.id));
+      const listEl = document.getElementById('modal-list');
+      if (items.length === 0) {
+        listEl.innerHTML = '<div class="empty-modal">Nenhum imóvel excluído.</div>';
+      } else {
+        listEl.innerHTML = items.map(p => `
+          <div class="modal-item">
+            <span>
+              <b>${p.id}</b> - ${p.nome} (${p.tipo})
+              <br><small>Total: ¥${p.total_moradia.toLocaleString()}</small>
+            </span>
+            <button class="modal-restore-btn" onclick="window.restoreItem('${p.id}')">↺ Restaurar</button>
+          </div>
+        `).join('');
+      }
+    }
+
+    // ===========================
+    // Renderização principal
+    // ===========================
+    function render() {
+      const list = getFiltered();
+      const isStud = mode === 'student';
+
+      // Ordenação
+      list.sort((a, b) => {
+        let av, bv;
+        if (sortKey === 'grand_total') {
+          av = a.total_moradia + (isStud ? a.transp_stud : a.transp_normal);
+          bv = b.total_moradia + (isStud ? b.transp_stud : b.transp_normal);
+        } else if (sortKey === 'rank') {
+          av = b.score; bv = a.score;
+        } else {
+          av = a[sortKey] ?? 0; bv = b[sortKey] ?? 0;
+        }
+        return (av < bv ? -1 : av > bv ? 1 : 0) * sortDir;
+      });
+
+      const total = list.length;
+      const totalPages = Math.max(1, Math.ceil(total / pgSize));
+      if (pg > totalPages) pg = totalPages;
+      const start = (pg - 1) * pgSize;
+      const pageItems = list.slice(start, start + pgSize);
+
+      // Atualizar contadores
+      document.getElementById('total-shown').textContent = total;
+      document.getElementById('del-count').textContent = deleted.size;
+
+      // Stats
+      const stats = computeStats(list);
+      document.getElementById('stats-row').innerHTML = `
+        <div class="stat">📊 Média total/mês: <b>¥${stats.avgTotal.toLocaleString()}</b></div>
+        <div class="stat">📉 Menor total: <b>¥${stats.minTotal.toLocaleString()}</b></div>
+        <div class="stat">⭐ Favoritos: <b>${stats.favCount}</b></div>
+        <div class="stat">${isStud ? '🎓 Modo estudante ativo (−40%)' : '💳 Modo normal'}</div>
+      `;
+
+      // Tabela
+      const tbody = document.getElementById('tbody');
+      tbody.innerHTML = pageItems.map(p => {
+        const totalMensal = p.total_moradia + (isStud ? p.transp_stud : p.transp_normal);
+        const transportDisplay = isStud ? p.transp_stud : p.transp_normal;
+        const isFav = favs.has(p.id);
+        return `
+          <tr class="${isFav ? 'fav-row' : ''}" data-id="${p.id}">
+            <td class="rank">${start + pageItems.indexOf(p)}</td>
+            <td class="fav-cell">
+              <button class="fav-btn ${isFav ? 'active' : ''}" onclick="window.toggleFav('${p.id}')">
+                ${isFav ? '⭐' : '☆'}
+              </button>
+            </td>
+            <td class="del-cell">
+              <button class="del-btn" onclick="window.deleteItem('${p.id}')">
+                <svg viewBox="0 0 16 16" fill="none"><path d="M6 2h4a1 1 0 0 1 1 1H5a1 1 0 0 1 1-1Z" fill="currentColor"/><rect x="2.5" y="4" width="11" height="1.2" rx=".6" fill="currentColor"/><path d="M4 6l.8 8h6.4L12 6H4Zm2.5 1.5h1v5h-1v-5Zm3 0h1v5h-1v-5Z" fill="currentColor"/></svg>
+              </button>
+            </td>
+            <td class="nome-cell" title="${p.nome}">${p.nome}</td>
+            <td><span class="badge ${badgeClass(p.tipo)}">${p.tipo}</span></td>
+            <td>
+              <div class="score-wrap">
+                <div class="score-bar-bg">
+                  <div class="score-bar-fill" style="width: ${p.score}%; background: ${scoreColor(p.score)}"></div>
+                </div>
+                <span class="score-val" style="color: ${scoreColor(p.score)}">${p.score}</span>
+              </div>
+            </td>
+            <td>¥${p.total_moradia.toLocaleString()}</td>
+            <td class="${p.dep === 0 ? 'dep-zero' : ''}">${p.dep === 0 ? 'Isento' : '¥' + p.dep.toLocaleString()}</td>
+            <td>${p.area.toFixed(2)} m²</td>
+            <td class="${transportClass(p.trem)}">${p.trem}'</td>
+            <td>¥${p.passagem.toLocaleString()}</td>
+            <td>¥${transportDisplay.toLocaleString()}</td>
+            <td><b>¥${totalMensal.toLocaleString()}</b></td>
+            <td>${p.ano}</td>
+            <td class="obs-cell">
+              <textarea class="obs-input" placeholder="Anotações..." oninput="window.saveObs('${p.id}', this.value)">${obs[p.id] || ''}</textarea>
+            </td>
+            <td><a class="link-btn" href="${BASE}${p.id}" target="_blank" rel="noopener">Abrir</a></td>
+          </tr>
+        `;
+      }).join('');
+
+      // Paginação
+      document.getElementById('pagination').innerHTML = `
+        <button class="pg-btn" onclick="window.changePage(1)" ${pg === 1 ? 'disabled' : ''}>« Primeiro</button>
+        <button class="pg-btn" onclick="window.changePage(${pg - 1})" ${pg === 1 ? 'disabled' : ''}>‹ Anterior</button>
+        <span class="pg-info">Página ${pg} de ${totalPages} (${start}–${Math.min(start + pageItems.length - 1, total)} de ${total})</span>
+        <button class="pg-btn" onclick="window.changePage(${pg + 1})" ${pg >= totalPages ? 'disabled' : ''}>Próximo ›</button>
+        <button class="pg-btn" onclick="window.changePage(${totalPages})" ${pg >= totalPages ? 'disabled' : ''}>Último »</button>
+      `;
+
+      // Atualizar botões de filtro
+      document.getElementById('btn-n').className = `toggle-btn ${mode === 'normal' ? 'active' : ''}`;
+      document.getElementById('btn-s').className = `toggle-btn ${mode === 'student' ? 'active' : ''}`;
+      document.getElementById('btn-favs-filter').className = `btn-favs ${onlyFavs ? 'active' : ''}`;
+    }
+
+    // ===========================
+    // Inicialização eventos
+    // ===========================
+    document.addEventListener('DOMContentLoaded', () => {
+      loadData();
+
+      // Modal
+      document.getElementById('modal-bg').addEventListener('click', window.closeModal);
+
+      // Inputs
+      document.getElementById('f-tipo').addEventListener('change', (e) => { tipoFilter = e.target.value; pg = 1; render(); });
+      document.getElementById('f-trem').addEventListener('input', (e) => { tremMax = e.target.value ? parseInt(e.target.value) : null; pg = 1; render(); });
+      document.getElementById('f-total').addEventListener('input', (e) => { totalMax = e.target.value ? parseInt(e.target.value) : null; pg = 1; render(); });
+      document.getElementById('f-dep').addEventListener('input', (e) => { depMax = e.target.value ? parseInt(e.target.value) : null; pg = 1; render(); });
+      document.getElementById('f-search').addEventListener('input', (e) => { busca = e.target.value; pg = 1; render(); });
+      document.getElementById('f-pgsz').addEventListener('change', (e) => { pgSize = parseInt(e.target.value); pg = 1; render(); });
+    });
+  </script>  <header class="header"> <div class="header-top"> <div> <h1>🏠 Ranking de Imóveis — Japão</h1> <p>Destino: <b>Shinkawa, Chuo-ku, Tokyo</b> · <b id="total-shown">–</b> imóveis · Score 0–100</p> </div> <div class="header-actions"> <button class="btn-restore" onclick="window.openModal()">🗑 Excluídos (<span id="del-count">0</span>)</button> <button class="btn-export" onclick="window.exportData()">⬇ Exportar JSON</button> </div> </div> </header> <div class="main"> <!-- Pesos --> <div class="pesos"> <div class="peso-item">🏠 Aluguel+Cond <b>35%</b></div> <div class="peso-item">💴 Depósito <b>25%</b></div> <div class="peso-item">🚃 Trem <b>20%</b></div> <div class="peso-item">📐 ¥/m² <b>12%</b></div> <div class="peso-item">🏗 Ano <b>8%</b></div> </div> <!-- Controles --> <div class="controls-card"> <div class="controls-row"> <div style="display:flex; gap:6px; align-items:center;"> <span style="font-size:12px; color:#666;">Transporte:</span> <button class="toggle-btn active" id="btn-n" onclick="() => setMode(&#34;normal&#34;)">💳 Normal</button> <button class="toggle-btn" id="btn-s" onclick="() => setMode(&#34;student&#34;)">🎓 Estudante −40%</button> </div> <label>Itens/pág:</label> <select id="f-pgsz"> <option value="25">25</option> <option value="50" selected>50</option> <option value="100">100</option> <option value="200">200</option> </select> </div> <div class="controls-row"> <label>Tipo:</label> <select id="f-tipo"> <option value="">Todos</option> <option value="1K">1K</option><option value="1R">1R</option> <option value="1DK">1DK</option><option value="1LDK">1LDK</option> <option value="2K">2K</option><option value="2DK">2DK</option> <option value="2LDK">2LDK</option><option value="3K">3K</option> <option value="3DK">3DK</option><option value="3LDK">3LDK</option> </select> <label>Trem até (min):</label> <input type="number" id="f-trem" placeholder="ex: 40"> <label>Total/mês até ¥:</label> <input type="number" id="f-total" placeholder="ex: 90000"> <label>Dep. até ¥:</label> <input type="number" id="f-dep" placeholder="ex: 50000"> <label>Busca:</label> <input type="text" id="f-search" placeholder="nome ou ID..." style="width:150px;"> <button class="toggle-btn" onclick="() => {
+    document.getElementById(&#34;f-tipo&#34;).value = &#34;&#34;;
+    document.getElementById(&#34;f-trem&#34;).value = &#34;&#34;;
+    document.getElementById(&#34;f-total&#34;).value = &#34;&#34;;
+    document.getElementById(&#34;f-dep&#34;).value = &#34;&#34;;
+    document.getElementById(&#34;f-search&#34;).value = &#34;&#34;;
+    tipoFilter = &#34;&#34;;
+    tremMax = null;
+    totalMax = null;
+    depMax = null;
+    busca = &#34;&#34;;
+    pg = 1;
+    render();
+  }">✕ Limpar</button> <button class="btn-favs" id="btn-favs-filter" onclick="() => {
+    onlyFavs = !onlyFavs;
+    pg = 1;
+    render();
+  }">⭐ Só favoritos</button> </div> </div> <!-- Stats --> <div class="stats-row" id="stats-row"> <!-- preenchido via JS --> </div> <!-- Tabela --> <div class="table-wrap"> <div style="overflow-x:auto;"> <table> <thead> <tr> <th onclick="window.sortBy('rank')">#</th> <th class="no-sort" title="Favoritar">⭐</th> <th class="del-th no-sort" title="Excluir imóvel"> <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:13px;height:13px;display:inline-block;vertical-align:middle;"> <path d="M6 2h4a1 1 0 0 1 1 1H5a1 1 0 0 1 1-1Z" fill="#c0392b"></path> <rect x="2.5" y="4" width="11" height="1.2" rx=".6" fill="#c0392b"></rect> <path d="M4 6l.8 8h6.4L12 6H4Zm2.5 1.5h1v5h-1v-5Zm3 0h1v5h-1v-5Z" fill="#c0392b"></path> </svg> </th> <th onclick="window.sortBy('nome')">Nome</th> <th onclick="window.sortBy('tipo')">Tipo</th> <th onclick="window.sortBy('score')">Score</th> <th onclick="window.sortBy('total_moradia')">Alug+Cond</th> <th onclick="window.sortBy('dep')">Depósito</th> <th onclick="window.sortBy('area')">Área</th> <th onclick="window.sortBy('trem')">🚃 Trem</th> <th>Passagem</th> <th>Transp/mês</th> <th onclick="window.sortBy('grand_total')">💰 Total/mês</th> <th onclick="window.sortBy('ano')">Ano</th> <th class="no-sort">📝 Observações</th> <th class="no-sort">Link</th> </tr> </thead> <tbody id="tbody"></tbody> </table> </div> <div class="pagination" id="pagination"></div> </div> <!-- Nota --> <div class="note">
+⚠️ Tempos de trem estimados (±10min). Passagem = IC card one-way × 40 viagens/mês. Estudante = −40%.<br>
+⭐ Favoritos e observações são salvos automaticamente. Use <b>⬇ Exportar JSON</b> para backup portátil.
+</div> </div>  <div class="toast" id="toast"></div>  <div class="modal-bg" id="modal-bg" onclick="window.closeModal()"> <div class="modal" onclick="event.stopPropagation()"> <h3>🗑 Imóveis excluídos</h3> <div class="modal-list" id="modal-list"></div> <button class="modal-close" onclick="window.closeModal()">Fechar</button> </div> </div>    <!-- Conteúdo da página vai aqui --> </body></html>

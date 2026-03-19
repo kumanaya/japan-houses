@@ -1,0 +1,41 @@
+---
+// DeletedModal.astro - Modal para gerenciar imóveis excluídos
+interface Props {
+  deleted: Set<string>;
+  rawProperties: any[];
+  onRestore: (id: string) => void;
+  onClose: () => void;
+}
+
+const { deleted, rawProperties, onRestore, onClose } = Astro.props;
+
+// Encontra os imóveis deletados com seus dados
+const deletedItems = rawProperties.filter(p => deleted.has(p.id));
+---
+
+<div class="modal-bg open" id="modal-bg" onclick={onClose}>
+  <div class="modal" onclick={(e: any) => e.stopPropagation()}>
+    <h3>🗑 Imóveis excluídos</h3>
+    {deletedItems.length === 0 ? (
+      <div class="empty-modal">Nenhum imóvel excluído.</div>
+    ) : (
+      <>
+        <div class="modal-list">
+          {deletedItems.map(p => (
+            <div class="modal-item">
+              <span>
+                <b>{p.id}</b> - {p.nome} ({p.tipo})
+                <br />
+                <small>Total: ¥{p.total_moradia.toLocaleString()}</small>
+              </span>
+              <button class="modal-restore-btn" onclick={() => onRestore(p.id)}>
+                ↺ Restaurar
+              </button>
+            </div>
+          ))}
+        </div>
+        <button class="modal-close" onclick={onClose}>Fechar</button>
+      </>
+    )}
+  </div>
+</div>

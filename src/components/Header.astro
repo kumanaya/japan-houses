@@ -1,0 +1,27 @@
+---
+// Header.astro - Cabeçalho com título, ações e contador de deletados
+interface Props {
+  deletedCount: number;
+  onOpenModal: () => void;
+  onExport: () => void;
+}
+
+const { deletedCount, onOpenModal, onExport } = Astro.props;
+---
+
+<header class="header">
+  <div class="header-top">
+    <div>
+      <h1>🏠 Ranking de Imóveis — Japão</h1>
+      <p>Destino: <b>Shinkawa, Chuo-ku, Tokyo</b> · <b id="total-shown">–</b> imóveis · Score 0–100</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn-restore" onclick={onOpenModal}>
+        🗑 Excluídos (<span id="del-count">{deletedCount}</span>)
+      </button>
+      <button class="btn-export" onclick={onExport}>
+        ⬇ Exportar JSON
+      </button>
+    </div>
+  </div>
+</header>

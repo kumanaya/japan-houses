@@ -1,0 +1,122 @@
+---
+// Filters.astro - Painel de filtros e controles
+interface Props {
+  tipo: string;
+  tremMax: number | null;
+  totalMax: number | null;
+  depMax: number | null;
+  busca: string;
+  isStudent: boolean;
+  onlyFavs: boolean;
+  pageSize: number;
+  onTipoChange: (value: string) => void;
+  onTremChange: (value: number | null) => void;
+  onTotalChange: (value: number | null) => void;
+  onDepChange: (value: number | null) => void;
+  onBuscaChange: (value: string) => void;
+  onModeToggle: () => void;
+  onFavsFilterToggle: () => void;
+  onPageSizeChange: (size: number) => void;
+  onClear: () => void;
+}
+
+const {
+  tipo,
+  tremMax,
+  totalMax,
+  depMax,
+  busca,
+  isStudent,
+  onlyFavs,
+  pageSize,
+  onTipoChange,
+  onTremChange,
+  onTotalChange,
+  onDepChange,
+  onBuscaChange,
+  onModeToggle,
+  onFavsFilterToggle,
+  onPageSizeChange,
+  onClear
+} = Astro.props;
+
+const tipoOptions = [
+  '', '1K', '1R', '1DK', '1LDK', '2K', '2DK', '2LDK', '3K', '3DK', '3LDK'
+];
+---
+
+<div class="controls-card">
+  <!-- Linha 1: Modo e tamanho da página -->
+  <div class="controls-row" style="align-items: center;">
+    <div style="display:flex; gap:6px; align-items:center;">
+      <span style="font-size:12px; color:#666;">Transporte:</span>
+      <button class="toggle-btn {isStudent ? '' : 'active'}" id="btn-n" onclick={onModeToggle}>
+        💳 Normal
+      </button>
+      <button class="toggle-btn {isStudent ? 'active' : ''}" id="btn-s" onclick={onModeToggle}>
+        🎓 Estudante −40%
+      </button>
+    </div>
+    <label>Itens/pág:</label>
+    <select id="f-pgsz" onchange={(e: any) => onPageSizeChange(parseInt(e.target.value))}>
+      <option value="25" selected={pageSize === 25}>25</option>
+      <option value="50" selected={pageSize === 50}>50</option>
+      <option value="100" selected={pageSize === 100}>100</option>
+      <option value="200" selected={pageSize === 200}>200</option>
+    </select>
+  </div>
+
+  <!-- Linha 2: Filtros específicos -->
+  <div class="controls-row">
+    <label>Tipo:</label>
+    <select id="f-tipo" onchange={(e: any) => onTipoChange(e.target.value)}>
+      {tipoOptions.map(opt => (
+        <option value={opt} selected={tipo === opt}>
+          {opt || 'Todos'}
+        </option>
+      ))}
+    </select>
+
+    <label>Trem até (min):</label>
+    <input
+      type="number"
+      id="f-trem"
+      placeholder="ex: 40"
+      value={tremMax ?? ''}
+      oninput={(e: any) => onTremChange(e.target.value ? parseInt(e.target.value) : null)}
+    />
+
+    <label>Total/mês até ¥:</label>
+    <input
+      type="number"
+      id="f-total"
+      placeholder="ex: 90000"
+      value={totalMax ?? ''}
+      oninput={(e: any) => onTotalChange(e.target.value ? parseInt(e.target.value) : null)}
+    />
+
+    <label>Dep. até ¥:</label>
+    <input
+      type="number"
+      id="f-dep"
+      placeholder="ex: 50000"
+      value={depMax ?? ''}
+      oninput={(e: any) => onDepChange(e.target.value ? parseInt(e.target.value) : null)}
+    />
+
+    <label>Busca:</label>
+    <input
+      type="text"
+      id="f-search"
+      placeholder="nome ou ID..."
+      style="width:150px;"
+      value={busca}
+      oninput={(e: any) => onBuscaChange(e.target.value)}
+    />
+
+    <button class="toggle-btn" onclick={onClear}>✕ Limpar</button>
+    <button class="btn-favs {onlyFavs ? 'active' : ''}" id="btn-favs-filter" onclick={onFavsFilterToggle}>
+      ⭐ Só favoritos
+    </button>
+  </div>
+</div>

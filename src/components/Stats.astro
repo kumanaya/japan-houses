@@ -1,0 +1,21 @@
+---
+// Stats.astro - Exibe estatísticas gerais dos imóveis filtrados
+interface Props {
+  avgTotal: number;
+  minTotal: number;
+  favCount: number;
+  studentMode: boolean;
+}
+
+const { avgTotal, minTotal, favCount, studentMode } = Astro.props;
+const fmt = (n: number) => '¥' + n.toLocaleString('ja-JP');
+---
+
+<div class="stats-row" id="stats-row">
+  <div class="stat">📊 Média total/mês: <b>{fmt(avgTotal)}</b></div>
+  <div class="stat">📉 Menor total: <b>{fmt(minTotal)}</b></div>
+  <div class="stat">⭐ Favoritos: <b>{favCount}</b></div>
+  <div class="stat">
+    {studentMode ? '🎓 Modo estudante ativo (−40%)' : '💳 Modo normal'}
+  </div>
+</div>
