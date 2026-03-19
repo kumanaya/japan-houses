@@ -5,6 +5,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
 <BaseLayout>
   <script type="module" client:load>
+    console.log('SCRIPT LOADED');
     // ===========================
     // Configuração
     // ===========================
@@ -533,6 +534,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
     // Expor funções globalmente para onclickinline
     window.toggleTheme = toggleTheme;
+    window.importData = importData;
 
     // ===========================
     // Inicialização eventos
