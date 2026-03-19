@@ -233,11 +233,11 @@ td.obs-cell { white-space: normal; font-size: 11px; }
 td.del-cell, td.fav-cell { text-align: center; padding: 4px 2px; }
 thead th.del-th {
   text-align: center;
-  background: var(--bg-secondary)5f5;
+  background: var(--bg-secondary);
   color: var(--danger) !important;
   cursor: default;
 }
-thead th.del-th:hover { background: var(--bg-secondary)0f0; color: var(--danger) !important; }
+thead th.del-th:hover { background: var(--hover-bg); color: var(--danger) !important; }
 
 /* Botões de ação */
 .del-btn {
