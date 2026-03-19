@@ -211,7 +211,7 @@ thead th {
   user-select: none;
   min-width: 60px; /* garante largura mínima */
 }
-thead th:hover { color: var(--text-primary); background: #ebebed; }
+thead th:hover { color: var(--text-primary); background: var(--hover-bg); }
 thead th.no-sort { cursor: default; }
 thead th.no-sort:hover { background: var(--bg-primary); color: var(--text-secondary); }
 tbody tr {
@@ -219,8 +219,8 @@ tbody tr {
   transition: background .1s;
 }
 tbody tr:hover { background: var(--hover-bg); }
-tbody tr.fav-row { background: var(--bg-secondary)de7; }
-tbody tr.fav-row:hover { background: var(--bg-secondary)9c4; }
+tbody tr.fav-row { background: var(--fav-row-bg); }
+tbody tr.fav-row:hover { background: var(--fav-row-hover); }
 td {
   padding: 8px 10px;
   vertical-align: middle;
@@ -371,7 +371,7 @@ thead th.del-th:hover { background: var(--bg-secondary)0f0; color: var(--danger)
   border-radius: 4px;
   resize: none;
   font-family: inherit;
-  background: var(--bg-secondary)ef8;
+  background: var(--bg-secondary);
   color: var(--text-secondary);
   min-height: 28px;
 }
