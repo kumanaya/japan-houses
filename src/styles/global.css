@@ -29,7 +29,7 @@ body {
 .header p { font-size: 12px; color: #666; }
 
 /* Botões */
-.btn-restore, .btn-favs, .btn-export, .toggle-btn, .pg-btn {
+.btn-restore, .btn-favs, .btn-export, .btn-import, .toggle-btn, .pg-btn {
   font-size: 11.5px;
   padding: 5px 12px;
   border-radius: 6px;
@@ -44,6 +44,8 @@ body {
 .btn-favs.active { background: #ffd700; border-color: #e6b800; color: #5a4200; }
 .btn-export { background: #e8f0fe; border-color: #b0d0ff; color: #0047b3; }
 .btn-export:hover { background: #d0e4ff; }
+.btn-import { background: #e6f7ed; border-color: #8dd195; color: #2e7d32; }
+.btn-import:hover { background: #c8e6c9; }
 .toggle-btn.active { background: #0071e3; color: #fff; border-color: #0071e3; }
 .pg-btn:hover { background: #f0f0f0; }
 .pg-btn.active { background: #0071e3; color: #fff; border-color: #0071e3; }
